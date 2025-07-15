@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+*.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VS Code
+.vscode/
+.history/
+
+# Environment variables
+.env
+.env.*
+
+# Others
+*.sqlite3
+*.db
+*.bak
+*.swp
+*.swo
+*.tmp
+
+# Git
+.git/

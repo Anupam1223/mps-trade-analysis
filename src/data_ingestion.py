@@ -1,0 +1,61 @@
+import os
+from datetime import datetime, timedelta
+import pandas as pd
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+
+def fetch_data() -> dict[str, pd.DataFrame]:
+    """
+    Fetches historical stock data from Alpaca for a predefined list of symbols
+    and returns it as a dictionary of pandas DataFrames.
+
+    Returns:
+        dict[str, pd.DataFrame]: A dictionary where keys are stock symbols
+                                 and values are their corresponding dataframes.
+    """
+    # --- 1. Configuration ---
+    api_key = os.getenv('APCA_API_KEY_ID')
+    secret_key = os.getenv('APCA_API_SECRET_KEY')
+
+    if not api_key or not secret_key:
+        raise ValueError("API keys not found. Please set APCA_API_KEY_ID and APCA_API_SECRET_KEY environment variables.")
+
+    SYMBOLS = ["AAPL", "GOOGL", "MSFT", "AMZN", "NVDA"]
+    END_DATE = datetime.now()
+    START_DATE = END_DATE - timedelta(days=2 * 365)
+
+    # --- 2. Data Fetching ---
+    client = StockHistoricalDataClient(api_key, secret_key)
+    request_params = StockBarsRequest(
+                        symbol_or_symbols=SYMBOLS,
+                        timeframe=TimeFrame.Day,
+                        start=START_DATE,
+                        end=END_DATE,
+                        adjustment='raw'
+                   )
+
+    print(f"Fetching data for {SYMBOLS} from {START_DATE.date()} to {END_DATE.date()}...")
+    stock_bars = client.get_stock_bars(request_params)
+    print("Data fetched successfully.")
+
+    # --- 3. Format and Return DataFrames ---
+    # The SDK returns a MultiIndex DataFrame. We convert it into a dictionary
+    # of single-index DataFrames for easier handling in the pipeline.
+    data_by_symbol = {symbol: stock_bars.df.loc[symbol] for symbol in SYMBOLS}
+    
+    return data_by_symbol
+
+if __name__ == '__main__':
+    # This block allows you to test this script directly
+    # to ensure the data fetching works.
+    try:
+        data = fetch_data()
+        print("\n--- Testing data_ingestion.py ---")
+        # Print the first few rows for a sample stock
+        sample_symbol = "AAPL"
+        if sample_symbol in data:
+            print(f"Sample data for {sample_symbol}:")
+            print(data[sample_symbol].head())
+    except ValueError as e:
+        print(e)
