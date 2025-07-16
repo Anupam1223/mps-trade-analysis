@@ -3,6 +3,10 @@ from src.data_preprocessing import preprocess_data
 from src.model import build_model
 from src.evaluate import print_evaluation_summary, plot_loss_history, plot_accuracy_history, plot_predictions
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from src.evaluate import classification_metrics
+from sklearn.utils import class_weight
+import numpy as np
+
 
 
 def run_pipeline():
@@ -28,6 +32,15 @@ def run_pipeline():
         ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6, verbose=1)
     ]
 
+        # Compute class weights to handle imbalance
+    class_weights = class_weight.compute_class_weight(
+        class_weight='balanced',
+        classes=np.unique(y_train),
+        y=y_train
+    )
+    class_weight_dict = dict(enumerate(class_weights))
+
+
     # --- Train the Model with Callbacks ---
     history = model.fit(
         X_train,
@@ -36,7 +49,8 @@ def run_pipeline():
         batch_size=32,
         validation_data=(X_test, y_test),
         callbacks=callbacks,
-        verbose=0  # or verbose=1 if you want to see epoch logs
+        class_weight=class_weight_dict,
+        verbose=0
     )
 
     print("--- Model Training Complete ---")
@@ -53,6 +67,8 @@ def run_pipeline():
     # Display the prediction plot
     plot_predictions(model, X_test, y_test)
     print("--- Pipeline Finished ---")
+
+    classification_metrics(model, X_test, y_test)
 
 if __name__ == "__main__":
     run_pipeline()

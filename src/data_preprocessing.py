@@ -7,25 +7,32 @@ import ta
 def preprocess_data(data_dict: dict, symbol: str, lookback: int = 10):
     df = data_dict[symbol].copy()
 
+    # --- 1. Feature Engineering (based on EDA + TA indicators) ---
     df['returns'] = df['close'].pct_change()
     df['log_volume'] = np.log1p(df['volume'])
 
-    # Technical indicators
-    df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
-    df['macd'] = ta.trend.MACD(df['close']).macd_diff()
-    df['ema_ratio'] = ta.trend.EMAIndicator(df['close'], window=10).ema_indicator() / \
-                      ta.trend.EMAIndicator(df['close'], window=50).ema_indicator()
+    # Add technical indicators
+    df['rsi'] = ta.momentum.RSIIndicator(close=df['close']).rsi()
+    df['macd'] = ta.trend.MACD(close=df['close']).macd()
+    df['bollinger_h'] = ta.volatility.BollingerBands(close=df['close']).bollinger_hband()
+    df['bollinger_l'] = ta.volatility.BollingerBands(close=df['close']).bollinger_lband()
+    df['atr'] = ta.volatility.AverageTrueRange(high=df['high'], low=df['low'], close=df['close']).average_true_range()
+    df['stoch'] = ta.momentum.StochasticOscillator(high=df['high'], low=df['low'], close=df['close']).stoch()
+
 
     for i in range(1, lookback + 1):
         df[f'return_lag_{i}'] = df['returns'].shift(i)
 
-    # Refined directional target
-    threshold = 0.001
-    df['target'] = (df['returns'].shift(-1) > threshold).astype(int)
+    # Refined directional target: 1 if next day's return >= 0 else 0
+    # This makes it a binary classification problem
+    df['target'] = (df['returns'].shift(-1) >= 0).astype(int)
+
 
     df.dropna(inplace=True)
 
-    features = ['log_volume', 'rsi', 'macd', 'ema_ratio'] + [f'return_lag_{i}' for i in range(1, lookback + 1)]
+    features = ['log_volume', 'rsi', 'macd', 'bollinger_h', 'bollinger_l', 'atr', 'stoch'] + \
+           [f'return_lag_{i}' for i in range(1, lookback + 1)]
+
     X = df[features]
     y = df['target']
 
