@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler # <-- FIX: Changed from StandardScaler
 import ta
 
 
@@ -40,7 +40,9 @@ def preprocess_data(data_dict: dict, symbol: str, lookback: int = 10):
     X_train, X_test = X[:train_size], X[train_size:]
     y_train, y_test = y[:train_size], y[train_size:]
 
-    scaler = StandardScaler()
+    # --- FIX: Using MinMaxScaler to scale features to the [0, 1] range ---
+    # This is crucial for the stability of the MPSLayer's feature map.
+    scaler = MinMaxScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 

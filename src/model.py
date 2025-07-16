@@ -10,20 +10,17 @@ tn.set_default_backend("tensorflow")
 class MPSLayer(Layer):
     """
     An MPS layer for classification using ncon for the contraction.
-
-    This layer implements the methodology from arXiv:1906.06329, where
-    the inner product between encoded data and a trainable MPS is computed
-    using tensornetwork.ncon.
     """
     def __init__(self, output_dim, bond_dim=8, l2_lambda=1e-4, **kwargs):
         super(MPSLayer, self).__init__(**kwargs)
-        self.output_dim = output_dim  # Number of classes
+        self.output_dim = output_dim
         self.bond_dim = bond_dim
         self.l2_lambda = l2_lambda
 
     def build(self, input_shape):
         num_sites = input_shape[1]
-        self.feature_map_dim = 2 # d=2 for the feature map Φ(p)=[1-p, p]
+        self.feature_map_dim = 2 
+        # --- FIX: Pass l2_lambda from constructor ---
         reg = regularizers.l2(self.l2_lambda)
         
         self.label_site = num_sites // 2
@@ -86,19 +83,18 @@ class MPSLayer(Layer):
 
 # ----------------------------------------------------------------------------------
 
-def build_model(input_shape, num_classes, bond_dim=8):
+def build_model(input_shape, num_classes, bond_dim=8, learning_rate=1e-3, l2_lambda=1e-4):
     """
     Builds the Keras model using the data-encoding MPSLayer.
     """
     inputs = Input(shape=input_shape)
-    outputs = MPSLayer(output_dim=num_classes, bond_dim=bond_dim)(inputs)
+    # --- FIX: Pass l2_lambda to the layer ---
+    outputs = MPSLayer(output_dim=num_classes, bond_dim=bond_dim, l2_lambda=l2_lambda)(inputs)
     model = Model(inputs=inputs, outputs=outputs)
     
-    # --- THIS IS THE FIX ---
-    # Use SparseCategoricalCrossentropy because the labels are integers (0, 1),
-    # not one-hot encoded vectors. The metric is also updated accordingly.
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+        # --- FIX: Use learning_rate parameter ---
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=['sparse_categorical_accuracy']
     )
