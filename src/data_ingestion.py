@@ -43,19 +43,34 @@ def fetch_data() -> dict[str, pd.DataFrame]:
     # The SDK returns a MultiIndex DataFrame. We convert it into a dictionary
     # of single-index DataFrames for easier handling in the pipeline.
     data_by_symbol = {symbol: stock_bars.df.loc[symbol] for symbol in SYMBOLS}
+    total_points = 0
+    for symbol, df in data_by_symbol.items():
+        count = len(df)
+        total_points += count
+        print(f"{symbol}: {count} data points")
+
+    print(f"\nTotal data points fetched: {total_points}")
     
     return data_by_symbol
 
-if __name__ == '__main__':
-    # This block allows you to test this script directly
-    # to ensure the data fetching works.
-    try:
-        data = fetch_data()
-        print("\n--- Testing data_ingestion.py ---")
-        # Print the first few rows for a sample stock
-        sample_symbol = "AAPL"
-        if sample_symbol in data:
-            print(f"Sample data for {sample_symbol}:")
-            print(data[sample_symbol].head())
-    except ValueError as e:
-        print(e)
+# if __name__ == '__main__':
+#     try:
+#         data = fetch_data()
+#         print("\n--- Testing data_ingestion.py ---")
+
+#         total_points = 0
+#         for symbol, df in data.items():
+#             count = len(df)
+#             total_points += count
+#             print(f"{symbol}: {count} data points")
+
+#         print(f"\nTotal data points fetched: {total_points}")
+
+#         # Optional: Show a preview of one symbol
+#         sample_symbol = "AAPL"
+#         if sample_symbol in data:
+#             print(f"\nSample data for {sample_symbol}:")
+#             print(data[sample_symbol].head())
+
+#     except ValueError as e:
+#         print(e)

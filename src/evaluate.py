@@ -83,3 +83,14 @@ def plot_predictions(model, X_test, y_test):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+from sklearn.metrics import classification_report, roc_auc_score
+
+def classification_metrics(model, X_test, y_test):
+    y_prob = model.predict(X_test).flatten()
+    y_pred = (y_prob >= 0.5).astype(int)
+
+    print("\n--- Classification Report ---")
+    print(classification_report(y_test, y_pred, digits=4))
+
+    print(f"ROC-AUC Score: {roc_auc_score(y_test, y_prob):.4f}")
