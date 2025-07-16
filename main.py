@@ -22,11 +22,10 @@ def run_pipeline():
     print("\n--- STEP 3: Starting Model Training ---")
     input_shape = (X_train.shape[1], X_train.shape[2])
     
-    # --- THIS IS THE FIX ---
-    # Determine the number of classes from the preprocessed labels (will be 2)
     num_classes = len(np.unique(y_train))
     
-    # Pass the required 'num_classes' argument to the model builder
+    # --- FIX: Reset bond_dim to a reasonable default for a stable model ---
+    # Now that the model is stable, you can tune this parameter meaningfully.
     model = build_model(input_shape=input_shape, num_classes=num_classes, bond_dim=8)
     
     # Define Callbacks
@@ -52,7 +51,7 @@ def run_pipeline():
         validation_data=(X_test, y_test),
         callbacks=callbacks,
         class_weight=class_weight_dict,
-        verbose=1 # Changed to 1 to show training progress
+        verbose=1 
     )
 
     print("--- Model Training Complete ---")

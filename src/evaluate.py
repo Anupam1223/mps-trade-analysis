@@ -8,7 +8,6 @@ def print_evaluation_summary(history):
     """
     Extracts and prints the final epoch's metrics from the history object.
     """
-    # --- FIX: Use the correct metric keys from the history object ---
     final_loss = history.history['loss'][-1]
     final_val_loss = history.history['val_loss'][-1]
     final_acc = history.history['sparse_categorical_accuracy'][-1]
@@ -34,7 +33,6 @@ def plot_loss_history(history):
 
 def plot_accuracy_history(history):
     plt.figure(figsize=(10, 6))
-    # --- FIX: Use the correct metric keys for plotting ---
     plt.plot(history.history['sparse_categorical_accuracy'], label='Training Accuracy')
     plt.plot(history.history['val_sparse_categorical_accuracy'], label='Validation Accuracy')
     plt.title('Accuracy Over Epochs')
@@ -51,16 +49,11 @@ def plot_predictions(model, X_test, y_test):
     - Displays confusion matrix
     - Plots ROC curve
     """
-    # 1. Get raw logits from the model
     logits = model.predict(X_test)
-    # 2. Convert logits to probabilities
     probabilities = tf.nn.softmax(logits).numpy()
-    # 3. Get the predicted class by finding the index of the max probability
     predicted_classes = np.argmax(probabilities, axis=1)
-    # 4. Get the probability of the positive class (class 1) for the ROC curve
     positive_class_probs = probabilities[:, 1]
 
-    # --- 1. Confusion Matrix ---
     cm = confusion_matrix(y_test, predicted_classes)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
     disp.plot(cmap=plt.cm.Blues)
@@ -68,7 +61,6 @@ def plot_predictions(model, X_test, y_test):
     plt.grid(False)
     plt.show()
 
-    # --- 2. Prediction Comparison Plot ---
     plt.figure(figsize=(14, 4))
     plt.plot(y_test, label="Actual", marker='o', linestyle='--', alpha=0.7)
     plt.plot(predicted_classes, label="Predicted", marker='x', linestyle=':', alpha=0.7)
@@ -79,7 +71,6 @@ def plot_predictions(model, X_test, y_test):
     plt.grid(True)
     plt.show()
 
-    # --- 3. ROC Curve ---
     fpr, tpr, _ = roc_curve(y_test, positive_class_probs)
     roc_auc = auc(fpr, tpr)
 
@@ -94,12 +85,20 @@ def plot_predictions(model, X_test, y_test):
     plt.show()
 
 def classification_metrics(model, X_test, y_test):
-    logits = model.predict(X_test)
+    """
+    Calculates and returns classification metrics.
+    
+    Returns:
+        float: The ROC-AUC score.
+        str: The classification report string.
+    """
+    logits = model.predict(X_test, verbose=0)
     probabilities = tf.nn.softmax(logits).numpy()
     y_pred = np.argmax(probabilities, axis=1)
     positive_class_probs = probabilities[:, 1]
 
-    print("\n--- Classification Report ---")
-    print(classification_report(y_test, y_pred, digits=4))
-
-    print(f"ROC-AUC Score: {roc_auc_score(y_test, positive_class_probs):.4f}")
+    # --- FIX: Calculate score and generate report string to be returned ---
+    score = roc_auc_score(y_test, positive_class_probs)
+    report_str = classification_report(y_test, y_pred, digits=4)
+    
+    return score, report_str
