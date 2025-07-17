@@ -22,7 +22,7 @@ def contract_network_for_batch(feature_vectors, mps_tensors, label_site):
         The logits for the batch.
     """
     num_sites = len(mps_tensors)
-
+ 
     def contract_one_sample(elements):
         """Defines the full network contraction for one sample using ncon."""
         sample_data = elements
@@ -63,19 +63,60 @@ def contract_network_for_batch(feature_vectors, mps_tensors, label_site):
     )
     return logits
 
+def _dmrg_update_step(mps_tensors, i, bond_dim, sweep_direction):
+    """
+    Performs the two-site update using SVD.
+    This function is now generalized to handle tensors of any rank.
+    """
+    T1 = mps_tensors[i]
+    T2 = mps_tensors[i+1]
+
+    # --- FIX: Use tf.tensordot for robust contraction ---
+    # Identify the bond indices to contract over
+    bond_axis_T1 = len(T1.shape) - 1
+    bond_axis_T2 = 0
+    
+    # Combine the two tensors along their shared bond
+    bond_tensor = tf.tensordot(T1, T2, axes=[[bond_axis_T1], [bond_axis_T2]])
+
+    # Reshape for SVD. Group all left indices and all right indices.
+    left_dims = T1.shape[:-1]
+    right_dims = T2.shape[1:]
+    left_size = np.prod(left_dims).item()
+    right_size = np.prod(right_dims).item()
+    
+    matrix_to_decompose = tf.reshape(bond_tensor, (left_size, right_size))
+    
+    # Perform SVD and truncate to the desired bond dimension
+    s, u, v = tf.linalg.svd(matrix_to_decompose)
+    u_trunc = u[:, :bond_dim]
+    s_trunc = tf.linalg.diag(s[:bond_dim])
+    v_trunc = v[:, :bond_dim] # v is already transposed in tf.linalg.svd output
+    
+    # Distribute the singular values based on the sweep direction
+    if sweep_direction == 'forward':
+        # Absorb s into the right tensor (v)
+        new_T1_matrix = u_trunc
+        new_T2_matrix = s_trunc @ tf.transpose(v_trunc)
+    else: # backward
+        # Absorb s into the left tensor (u)
+        new_T1_matrix = u_trunc @ s_trunc
+        new_T2_matrix = tf.transpose(v_trunc)
+
+    # Reshape the matrices back into tensors with the correct final shapes
+    new_T1_shape = (*left_dims, bond_dim)
+    new_T2_shape = (bond_dim, *right_dims)
+    new_T1 = tf.reshape(new_T1_matrix, new_T1_shape)
+    new_T2 = tf.reshape(new_T2_matrix, new_T2_shape)
+
+    # Update the tensors in the list
+    mps_tensors[i].assign(new_T1)
+    mps_tensors[i+1].assign(new_T2)
+
+
 def train_with_dmrg(model, X_train, y_train, X_test, y_test, epochs=10, batch_size=32):
     """
     Trains the MPS model using a two-site DMRG-like optimization algorithm.
-
-    Args:
-        model: The Keras model containing the MPSLayer.
-        X_train, y_train: Training data and labels.
-        X_test, y_test: Validation data and labels.
-        epochs: The number of full sweeps (epochs).
-        batch_size: The batch size for stochastic updates.
-
-    Returns:
-        A dictionary containing the training history.
     """
     mps_layer = model.get_layer('mps_layer')
     num_sites = len(mps_layer.mps_tensors)
@@ -83,14 +124,10 @@ def train_with_dmrg(model, X_train, y_train, X_test, y_test, epochs=10, batch_si
     optimizer = model.optimizer
     loss_fn = model.loss
     
-    # Prepare datasets
     train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train)).shuffle(len(X_train)).batch(batch_size)
     test_dataset = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(batch_size)
     
-    history = {
-        'loss': [], 'sparse_categorical_accuracy': [],
-        'val_loss': [], 'val_sparse_categorical_accuracy': []
-    }
+    history = {'loss': [], 'sparse_categorical_accuracy': [], 'val_loss': [], 'val_sparse_categorical_accuracy': []}
 
     for epoch in range(epochs):
         print(f"\nEpoch {epoch + 1}/{epochs}")
@@ -101,41 +138,16 @@ def train_with_dmrg(model, X_train, y_train, X_test, y_test, epochs=10, batch_si
         for i in trange(num_sites - 1, desc="Optimizing bond"):
             for X_batch, y_batch in train_dataset:
                 with tf.GradientTape() as tape:
-                    # The tape automatically watches the trainable MPS tensors
                     feature_vectors = mps_layer._feature_map(tf.squeeze(X_batch, axis=-1))
                     logits = contract_network_for_batch(feature_vectors, mps_layer.mps_tensors, mps_layer.label_site)
                     loss = loss_fn(y_batch, logits)
                 
-                # Compute and apply gradients ONLY for the two sites being optimized
                 tensors_to_optimize = [mps_layer.mps_tensors[i], mps_layer.mps_tensors[i+1]]
                 grads = tape.gradient(loss, tensors_to_optimize)
                 optimizer.apply_gradients(zip(grads, tensors_to_optimize))
-
-                # --- SVD Truncation Step (Renormalization) ---
-                T1, T2 = mps_layer.mps_tensors[i], mps_layer.mps_tensors[i+1]
                 
-                # Combine the two tensors
-                bond_tensor = tn.ncon([T1, T2], [(-1, -2, 1), (1, -3, -4)])
-                
-                # Reshape for SVD
-                combined_shape = bond_tensor.shape
-                matrix_to_decompose = tf.reshape(bond_tensor, (combined_shape[0] * combined_shape[1], combined_shape[2] * combined_shape[3]))
-                
-                # Perform SVD and truncate
-                s, u, v = tf.linalg.svd(matrix_to_decompose)
-                u_trunc = u[:, :bond_dim]
-                s_trunc = tf.linalg.diag(s[:bond_dim])
-                v_trunc = v[:, :bond_dim] # v is already transposed in tf.linalg.svd output
-                
-                # Split back into two tensors, absorbing s into the right tensor for a forward sweep
-                new_T1 = tf.reshape(u_trunc, (combined_shape[0], combined_shape[1], -1))
-                new_T2_unshaped = s_trunc @ tf.transpose(v_trunc)
-                new_T2 = tf.reshape(new_T2_unshaped, (-1, combined_shape[2], combined_shape[3]))
-
-                # Update the model's weights
-                mps_layer.mps_tensors[i].assign(new_T1)
-                mps_layer.mps_tensors[i+1].assign(new_T2)
-
+                # Perform the SVD update
+                _dmrg_update_step(mps_layer.mps_tensors, i, bond_dim, sweep_direction='forward')
 
         # --- BACKWARD SWEEP (right to left) ---
         print("<- Backward Sweep")
@@ -150,24 +162,8 @@ def train_with_dmrg(model, X_train, y_train, X_test, y_test, epochs=10, batch_si
                 grads = tape.gradient(loss, tensors_to_optimize)
                 optimizer.apply_gradients(zip(grads, tensors_to_optimize))
 
-                # --- SVD Truncation Step ---
-                T1, T2 = mps_layer.mps_tensors[i], mps_layer.mps_tensors[i+1]
-                bond_tensor = tn.ncon([T1, T2], [(-1, -2, 1), (1, -3, -4)])
-                combined_shape = bond_tensor.shape
-                matrix_to_decompose = tf.reshape(bond_tensor, (combined_shape[0] * combined_shape[1], combined_shape[2] * combined_shape[3]))
-                
-                s, u, v = tf.linalg.svd(matrix_to_decompose)
-                u_trunc = u[:, :bond_dim]
-                s_trunc = tf.linalg.diag(s[:bond_dim])
-                v_trunc = v[:, :bond_dim]
-                
-                # Absorb s into the left tensor for a backward sweep
-                new_T1_unshaped = u_trunc @ s_trunc
-                new_T1 = tf.reshape(new_T1_unshaped, (combined_shape[0], combined_shape[1], -1))
-                new_T2 = tf.reshape(tf.transpose(v_trunc), (-1, combined_shape[2], combined_shape[3]))
-
-                mps_layer.mps_tensors[i].assign(new_T1)
-                mps_layer.mps_tensors[i+1].assign(new_T2)
+                # Perform the SVD update
+                _dmrg_update_step(mps_layer.mps_tensors, i, bond_dim, sweep_direction='backward')
 
         # --- EVALUATION at the end of each epoch ---
         train_loss, train_acc = model.evaluate(train_dataset, verbose=0)
