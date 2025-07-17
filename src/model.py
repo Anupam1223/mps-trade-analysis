@@ -3,6 +3,7 @@ from tensorflow.keras.layers import Input, Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras import regularizers
 import tensornetwork as tn
+import numpy as np
 
 # Set the backend for TensorNetwork
 tn.set_default_backend("tensorflow")
@@ -11,16 +12,17 @@ class MPSLayer(Layer):
     """
     An MPS layer for classification using ncon for the contraction.
     """
-    def __init__(self, output_dim, bond_dim=8, l2_lambda=1e-4, **kwargs):
+    def __init__(self, output_dim, bond_dim=20, l2_lambda=1e-4, feature_map_type='linear', **kwargs):
         super(MPSLayer, self).__init__(**kwargs)
         self.output_dim = output_dim
         self.bond_dim = bond_dim
         self.l2_lambda = l2_lambda
+        # --- NEW: Added feature map type ---
+        self.feature_map_type = feature_map_type
 
     def build(self, input_shape):
         num_sites = input_shape[1]
         self.feature_map_dim = 2 
-        # --- FIX: Pass l2_lambda from constructor ---
         reg = regularizers.l2(self.l2_lambda)
         
         self.label_site = num_sites // 2
@@ -42,7 +44,15 @@ class MPSLayer(Layer):
         super(MPSLayer, self).build(input_shape)
 
     def _feature_map(self, inputs):
-        """Applies the linear feature map Φ(p) = [1-p, p]."""
+        """
+        Applies a feature map to encode the input data into vectors.
+        'linear': Φ(p) = [1-p, p]
+        'angle':  Φ(p) = [cos(p * π/2), sin(p * π/2)]
+        """
+        if self.feature_map_type == 'angle':
+            # --- NEW: Non-linear angle encoding feature map ---
+            return tf.stack([tf.cos(inputs * np.pi / 2.0), tf.sin(inputs * np.pi / 2.0)], axis=-1)
+        # Default to linear
         return tf.stack([1.0 - inputs, inputs], axis=-1)
 
     def call(self, inputs):
@@ -83,17 +93,20 @@ class MPSLayer(Layer):
 
 # ----------------------------------------------------------------------------------
 
-def build_model(input_shape, num_classes, bond_dim=8, learning_rate=1e-3, l2_lambda=1e-4):
+def build_model(input_shape, num_classes, bond_dim=8, learning_rate=1e-3, l2_lambda=1e-4, feature_map_type='linear'):
     """
     Builds the Keras model using the data-encoding MPSLayer.
     """
     inputs = Input(shape=input_shape)
-    # --- FIX: Pass l2_lambda to the layer ---
-    outputs = MPSLayer(output_dim=num_classes, bond_dim=bond_dim, l2_lambda=l2_lambda)(inputs)
+    outputs = MPSLayer(
+        output_dim=num_classes, 
+        bond_dim=bond_dim, 
+        l2_lambda=l2_lambda,
+        feature_map_type=feature_map_type
+    )(inputs)
     model = Model(inputs=inputs, outputs=outputs)
     
     model.compile(
-        # --- FIX: Use learning_rate parameter ---
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=['sparse_categorical_accuracy']
