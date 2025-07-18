@@ -42,7 +42,7 @@ def run_pipeline():
         y_train,
         X_test,
         y_test,
-        epochs=10, # Number of full sweeps
+        epochs=5, # Number of full sweeps
         batch_size=64
     )
     # -------------------------------------------------------------------------

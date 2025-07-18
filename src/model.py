@@ -5,6 +5,9 @@ from tensorflow.keras import regularizers
 import tensornetwork as tn
 import numpy as np
 
+# --- FIX: Import the contraction function to make it available to the MPSLayer ---
+from src.dmrg_optimizer import contract_network_for_batch
+
 # Set the backend for TensorNetwork
 tn.set_default_backend("tensorflow")
 
@@ -13,7 +16,7 @@ class MPSLayer(Layer):
     An MPS layer for classification using ncon for the contraction.
     This version is compatible with the DMRG optimizer.
     """
-    def __init__(self, output_dim, bond_dim=20, l2_lambda=1e-4, feature_map_type='linear', **kwargs):
+    def __init__(self, output_dim, bond_dim=8, l2_lambda=1e-2, feature_map_type='angle', **kwargs):
         super(MPSLayer, self).__init__(**kwargs)
         self.output_dim = output_dim
         self.bond_dim = bond_dim
@@ -65,13 +68,13 @@ class MPSLayer(Layer):
     def call(self, inputs):
         """
         Defines the forward pass for inference/evaluation.
-        The DMRG training uses its own contraction function.
+        The DMRG training uses its own contraction function, but this call method
+        is required for standard Keras functions like .predict() and .evaluate().
         """
         squeezed_inputs = tf.squeeze(inputs, axis=-1)
         feature_vectors = self._feature_map(squeezed_inputs)
         
-        # The contraction logic is now centralized in the DMRG optimizer
-        # to facilitate JIT compilation and manual gradient control.
+        # The contraction logic is now accessible due to the import.
         logits = contract_network_for_batch(feature_vectors, self.mps_tensors, self.label_site)
         return logits
 
@@ -81,12 +84,11 @@ class MPSLayer(Layer):
 
 # ----------------------------------------------------------------------------------
 
-def build_model(input_shape, num_classes, bond_dim=8, learning_rate=1e-3, l2_lambda=1e-4, feature_map_type='linear'):
+def build_model(input_shape, num_classes, bond_dim=8, learning_rate=1e-5, l2_lambda=1e-4, feature_map_type='angle'):
     """
     Builds the Keras model using the data-encoding MPSLayer.
     """
     inputs = Input(shape=input_shape)
-    # --- MODIFICATION: Added name='mps_layer' to easily access it later ---
     outputs = MPSLayer(
         output_dim=num_classes, 
         bond_dim=bond_dim, 
