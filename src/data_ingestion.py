@@ -23,7 +23,7 @@ def fetch_data() -> dict[str, pd.DataFrame]:
 
     SYMBOLS = ["AAPL", "GOOGL", "MSFT", "AMZN", "NVDA"]
     END_DATE = datetime.now()
-    START_DATE = END_DATE - timedelta(days=2 * 365)
+    START_DATE = END_DATE - timedelta(days=5 * 365)
 
     # --- 2. Data Fetching ---
     client = StockHistoricalDataClient(api_key, secret_key)
