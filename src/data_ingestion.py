@@ -23,13 +23,13 @@ def fetch_data() -> dict[str, pd.DataFrame]:
 
     SYMBOLS = ["AAPL", "GOOGL", "MSFT", "AMZN", "NVDA"]
     END_DATE = datetime.now()
-    START_DATE = END_DATE - timedelta(days=2 * 365)
+    START_DATE = END_DATE - timedelta(days=365)
 
     # --- 2. Data Fetching ---
     client = StockHistoricalDataClient(api_key, secret_key)
     request_params = StockBarsRequest(
                         symbol_or_symbols=SYMBOLS,
-                        timeframe=TimeFrame.Day,
+                        timeframe=TimeFrame.Hour,
                         start=START_DATE,
                         end=END_DATE,
                         adjustment='raw'
@@ -52,25 +52,3 @@ def fetch_data() -> dict[str, pd.DataFrame]:
     print(f"\nTotal data points fetched: {total_points}")
     
     return data_by_symbol
-
-# if __name__ == '__main__':
-#     try:
-#         data = fetch_data()
-#         print("\n--- Testing data_ingestion.py ---")
-
-#         total_points = 0
-#         for symbol, df in data.items():
-#             count = len(df)
-#             total_points += count
-#             print(f"{symbol}: {count} data points")
-
-#         print(f"\nTotal data points fetched: {total_points}")
-
-#         # Optional: Show a preview of one symbol
-#         sample_symbol = "AAPL"
-#         if sample_symbol in data:
-#             print(f"\nSample data for {sample_symbol}:")
-#             print(data[sample_symbol].head())
-
-#     except ValueError as e:
-#         print(e)
