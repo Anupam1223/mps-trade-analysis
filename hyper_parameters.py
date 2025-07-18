@@ -15,7 +15,7 @@ def objective(trial: optuna.Trial, raw_data_dict: dict, symbol: str) -> float:
     """
     # --- 1. Define Hyperparameter Search Space using trial.suggest_* ---
     params = {
-        'bond_dim': trial.suggest_categorical('bond_dim', [4, 8, 12, 16]),
+        'bond_dim': trial.suggest_categorical('bond_dim', [4, 8, 12, 16]),              
         'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True),
         'l2_lambda': trial.suggest_float('l2_lambda', 1e-6, 1e-2, log=True),
         'lookback': trial.suggest_categorical('lookback', [10, 15, 20])
