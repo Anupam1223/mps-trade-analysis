@@ -2,29 +2,52 @@
 
 import numpy as np
 import tensorflow as tf
-import time  # <--- 1. Import the time module
+import time
 from sklearn.utils import class_weight
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
-# Import your existing and new evaluate functions
-from src.data_ingestion import fetch_data
-from src.data_preprocessing import preprocess_data
+from src.data_ingestion import fetch_data, fetch_forex_data_yf
+# Import the NEW universal preprocessor
+from src.data_preprocessing import preprocess_data_universal
 from src.evaluate import (classification_metrics, plot_comparison_metrics,
-                          plot_comparison_roc, plot_predictions, plot_training_times) # <--- 2. Import new plot function
+                          plot_comparison_roc, plot_predictions, plot_training_times)
 
-# Import both model builders
 from src.mps_model import build_model as build_mps_model
 from src.lstm_model import build_lstm_model
+from alpaca.data.timeframe import TimeFrame
 
 def run_comparison_pipeline():
     """
-    Executes a full ML pipeline to train and compare MPS and LSTM models.
+    Executes a full ML pipeline to train and compare universal models.
     """
+    # 1. Original Tech Stocks
+    symbols_to_fetch = ["AAPL", "GOOGL", "MSFT", "AMZN", "NVDA"]
+    
+    # 2. Financial Sector
+    # symbols_to_fetch = ["JPM", "GS", "BAC", "WFC", "MS"]
+    
+    # 3. Energy Sector
+    # symbols_to_fetch = ["XOM", "CVX", "SLB", "COP", "EOG"]
+    
+    # 4. Market Index ETFs
+    # symbols_to_fetch = ["SPY", "QQQ", "IWM"]
+
+    # 5. Single Volatile Stock
+    # symbols_to_fetch = ["TSLA"]
+
+
     # --- STEP 1: Data Ingestion & Preprocessing ---
     print("--- 🔵 STEP 1: Starting Data Ingestion & Preprocessing ---")
-    raw_data_dict = fetch_data()
+    # raw_data_dict = fetch_data(symbols=symbols_to_fetch, timeframe=TimeFrame.Hour)]
+    raw_data_dict = fetch_forex_data_yf()
     lookback_period = 20
-    X_train, y_train, X_test, y_test = preprocess_data(raw_data_dict, symbol='AAPL', lookback=lookback_period)
+    
+    # --- This is the main change: Call the universal preprocessing function ---
+    X_train, y_train, X_test, y_test = preprocess_data_universal(
+        raw_data_dict,
+        lookback=lookback_period
+    )
+    
     print("--- ✅ Data Ingestion & Preprocessing Complete ---")
 
     # --- Shared Parameters and Callbacks ---
@@ -47,7 +70,6 @@ def run_comparison_pipeline():
     )
     mps_model.summary()
     
-    # 3. Time the MPS training
     mps_start_time = time.perf_counter()
     mps_model.fit(
         X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test),
@@ -69,7 +91,6 @@ def run_comparison_pipeline():
     )
     lstm_model.summary()
 
-    # 4. Time the LSTM training
     lstm_start_time = time.perf_counter()
     lstm_model.fit(
         X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test),
@@ -89,7 +110,6 @@ def run_comparison_pipeline():
     print("🏁 FINAL MODEL COMPARISON 🏁")
     print("="*50 + "\n")
 
-    # 5. Update the report to include training time
     for model_name, metrics in results.items():
         print(f"------ {model_name} Results ------")
         print(f"Training Time:   {metrics.get('training_time', 0):.2f} seconds")
@@ -103,7 +123,7 @@ def run_comparison_pipeline():
     trained_models = {'MPS': mps_model, 'LSTM': lstm_model}
     plot_comparison_roc(trained_models, X_test, y_test)
     plot_comparison_metrics(trained_models, X_test, y_test)
-    plot_training_times(results) # <--- 6. Call the new plot function
+    plot_training_times(results)
         
     print("--- ✅ Pipeline Finished ---")
 

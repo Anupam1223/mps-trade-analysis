@@ -1,3 +1,4 @@
+#main.py
 # Assuming your source files are in a 'src' directory
 # You may need to adjust the import paths based on your project structure
 from src.data_ingestion import fetch_data
