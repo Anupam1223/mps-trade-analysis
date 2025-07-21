@@ -101,7 +101,7 @@ class MPSLayer(Layer):
 
 # ----------------------------------------------------------------------------------
 
-def build_model(input_shape, num_classes, bond_dim=10, learning_rate=1e-4, l2_lambda=1e-5):
+def build_model(input_shape, num_classes, bond_dim=2, learning_rate=1e-4, l2_lambda=1e-5):
     """
     Builds the Keras model using the multi-feature MPSLayer.
     """

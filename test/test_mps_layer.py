@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Assuming your MPSLayer is defined in src/model.py
-from src.model import MPSLayer
+from src.mps_model import MPSLayer
 
 @pytest.mark.parametrize("batch_size, num_sites, num_features, bond_dim, output_dim", [
     (1, 5, 8, 4, 2),

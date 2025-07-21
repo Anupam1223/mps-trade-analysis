@@ -2,7 +2,7 @@
 # You may need to adjust the import paths based on your project structure
 from src.data_ingestion import fetch_data
 from src.data_preprocessing import preprocess_data
-from src.model import build_model
+from src.mps_model import build_model
 from src.evaluate import print_evaluation_summary, plot_loss_history, plot_accuracy_history, plot_predictions, classification_metrics
 
 import tensorflow as tf

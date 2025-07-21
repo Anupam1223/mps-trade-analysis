@@ -1,6 +1,6 @@
 from src.data_ingestion import fetch_data
 from src.data_preprocessing import preprocess_data
-from src.model import build_model
+from src.mps_model import build_model
 from src.evaluate import classification_metrics
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from sklearn.utils import class_weight
