@@ -13,7 +13,6 @@ def fetch_data(
     timeframe: TimeFrame = TimeFrame.Hour,
     days_back: int = 365
 ) -> dict[str, pd.DataFrame]:
-    # This function for Alpaca data remains the same
     api_key = os.getenv('APCA_API_KEY_ID')
     secret_key = os.getenv('APCA_API_SECRET_KEY')
     if not api_key or not secret_key:
@@ -37,29 +36,26 @@ def fetch_data(
 
 def fetch_forex_data_yf(
     symbols: list = None,
-    period: str = "1y",
+    period: str = "2y",
     interval: str = "1h"
 ) -> dict[str, pd.DataFrame]:
     """
     Fetches historical forex data from Yahoo Finance with robust formatting.
     """
     if symbols is None:
-        symbols = ["EURUSD=X", "JPY=X", "GBPUSD=X"]
+        # symbols = ["EURUSD=X", "JPY=X", "GBPUSD=X", "AUDUSD=X"]
+        symbols = ["EURUSD=X"]
         
     data_by_symbol = {}
     print(f"Fetching Forex data for {symbols} from Yahoo Finance...")
 
     for symbol in symbols:
-        # Download with auto_adjust=False to get the original OHLCV columns
-        df_raw = yf.download(symbol, period=period, interval=interval, auto_adjust=False)
+        df_raw = yf.download(symbol, period=period, interval=interval, auto_adjust=False, progress=False)
         
-        # --- DEFINITIVE FIX: Rebuild the DataFrame to guarantee 1D columns ---
         df = pd.DataFrame(index=df_raw.index)
-        # Use the original column names from yfinance
         for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
             if col in df_raw.columns:
                 df[col.lower()] = df_raw[col].values.flatten()
-        # --- END FIX ---
         
         if df.index.tz is not None:
             df.index = df.index.tz_localize(None)
