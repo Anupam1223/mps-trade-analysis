@@ -1,10 +1,18 @@
 # src/lstm_model.py
 import tensorflow as tf
+from tensorflow.keras.layers import LSTM, Bidirectional, Dense, Dropout, Input
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Bidirectional
-from .quantile_loss import quantile_loss # Import the new loss function
 
-def build_quantile_lstm_model(input_shape: tuple, quantile: float, lstm_units: int = 50, dropout_rate: float = 0.2, learning_rate: float = 1e-4) -> Model:
+from .quantile_loss import quantile_loss  # Import the new loss function
+
+
+def build_quantile_lstm_model(
+    input_shape: tuple,
+    quantile: float,
+    lstm_units: int = 50,
+    dropout_rate: float = 0.2,
+    learning_rate: float = 1e-4,
+) -> Model:
     """Builds a Bidirectional LSTM model for quantile regression."""
     inputs = Input(shape=input_shape)
 
@@ -12,7 +20,7 @@ def build_quantile_lstm_model(input_shape: tuple, quantile: float, lstm_units: i
     x = Dropout(dropout_rate)(x)
     x = Bidirectional(LSTM(units=lstm_units, return_sequences=False))(x)
     x = Dropout(dropout_rate)(x)
-    x = Dense(units=25, activation='relu')(x)
+    x = Dense(units=25, activation="relu")(x)
 
     # --- KEY CHANGE: Output layer for regression ---
     # Single neuron, linear activation (no activation function specified)
@@ -24,7 +32,7 @@ def build_quantile_lstm_model(input_shape: tuple, quantile: float, lstm_units: i
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss=quantile_loss(quantile),
-        metrics=['mean_absolute_error'] # Use a regression metric
+        metrics=["mean_absolute_error"],  # Use a regression metric
     )
-    
+
     return model

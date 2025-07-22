@@ -1,21 +1,27 @@
-import tensorflow as tf
+import os
+import sys
+
 import numpy as np
 import pytest
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Assuming your MPSLayer is defined in src/model.py
 from src.mps_model import MPSLayer
 
-@pytest.mark.parametrize("batch_size, num_sites, num_features, bond_dim, output_dim", [
-    (1, 5, 8, 4, 2),
-    (2, 10, 6, 6, 3),
-    (4, 7, 5, 8, 4),
-])
-def test_mps_layer_output_shape(batch_size, num_sites, num_features, bond_dim, output_dim):
+
+@pytest.mark.parametrize(
+    "batch_size, num_sites, num_features, bond_dim, output_dim",
+    [
+        (1, 5, 8, 4, 2),
+        (2, 10, 6, 6, 3),
+        (4, 7, 5, 8, 4),
+    ],
+)
+def test_mps_layer_output_shape(
+    batch_size, num_sites, num_features, bond_dim, output_dim
+):
     """
     Test that the MPSLayer produces the correct output shape without errors.
     """
@@ -31,15 +37,20 @@ def test_mps_layer_output_shape(batch_size, num_sites, num_features, bond_dim, o
     logits = model.predict(input_data)
 
     # Check output shape: (batch_size, output_dim)
-    assert logits.shape == (batch_size, output_dim), \
-        f"Expected output shape ({batch_size}, {output_dim}), got {logits.shape}"
+    assert logits.shape == (
+        batch_size,
+        output_dim,
+    ), f"Expected output shape ({batch_size}, {output_dim}), got {logits.shape}"
 
 
-@pytest.mark.parametrize("num_sites, num_features, bond_dim, output_dim", [
-    (5, 8, 4, 2),
-    (10, 6, 6, 3),
-    (7, 5, 8, 4),
-])
+@pytest.mark.parametrize(
+    "num_sites, num_features, bond_dim, output_dim",
+    [
+        (5, 8, 4, 2),
+        (10, 6, 6, 3),
+        (7, 5, 8, 4),
+    ],
+)
 def test_mps_layer_weights_shapes(num_sites, num_features, bond_dim, output_dim):
     """
     Test that the MPSLayer creates weights (tensors) of the expected shapes.
@@ -65,8 +76,9 @@ def test_mps_layer_weights_shapes(num_sites, num_features, bond_dim, output_dim)
         else:
             expected_shapes.append((bond_dim, num_features, bond_dim))
 
-    assert shapes == expected_shapes, \
-        f"Weight shapes do not match. Expected {expected_shapes}, got {shapes}"
+    assert (
+        shapes == expected_shapes
+    ), f"Weight shapes do not match. Expected {expected_shapes}, got {shapes}"
 
 
 def test_mps_layer_forward_consistency():
@@ -87,6 +99,7 @@ def test_mps_layer_forward_consistency():
 
     # Assert element-wise equality within tolerance
     np.testing.assert_allclose(logits1, logits2, rtol=1e-6, atol=1e-6)
+
 
 if __name__ == "__main__":
     pytest.main()
