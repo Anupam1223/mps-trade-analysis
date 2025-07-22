@@ -16,7 +16,7 @@ class MPSLayer(Layer):
     Matrix Product State layer for time-series inputs.
     Expects input shape: (batch_size, time_steps, num_features)
     """
-    def __init__(self, output_dim=1, bond_dim=4, l2_lambda=1e-5, **kwargs):
+    def __init__(self, output_dim=1, bond_dim=8, l2_lambda=1e-5, **kwargs):
         super(MPSLayer, self).__init__(**kwargs)
         self.output_dim = output_dim
         self.bond_dim = bond_dim
@@ -84,7 +84,7 @@ class MPSLayer(Layer):
         return (input_shape[0], self.output_dim)
 
 
-def build_quantile_mps_model(input_shape, quantile, bond_dim=4, learning_rate=1e-4, l2_lambda=1e-5):
+def build_quantile_mps_model(input_shape, quantile, bond_dim=8, learning_rate=1e-4, l2_lambda=1e-5):
     """
     Builds a quantile regression model using MPSLayer.
     """

@@ -7,6 +7,7 @@ from sklearn.utils import shuffle
 import ta
 
 def create_sequences(X_data, y_data, lookback):
+    """Helper function to create input sequences and corresponding labels."""
     Xs, ys = [], []
     for i in range(len(X_data) - lookback):
         Xs.append(X_data[i:(i + lookback)])
@@ -16,8 +17,20 @@ def create_sequences(X_data, y_data, lookback):
 
 def preprocess_for_quantile_regression(data_dict: dict, lookback: int = 20, future_horizon: int = 1):
     """
-    Prepares data for quantile regression.
+    Prepares data for quantile regression from a dictionary of pandas DataFrames.
     The target is the future return over 'future_horizon' periods.
+    
+    This function performs the following steps:
+    1. Iterates through all dataframes to calculate features and gather all training data.
+    2. Fits scalers (MinMaxScaler) on the combined training data to prevent data leakage.
+    3. Iterates through all dataframes again to apply the fitted scalers.
+    4. Creates sequences for training and testing.
+    5. Concatenates and shuffles the final training set.
+    6. Concatenates the final test set (without shuffling to preserve time series order).
+    
+    Returns:
+        - X_train, y_train, X_test, y_test (numpy arrays)
+        - x_scaler, y_scaler (fitted sklearn scalers)
     """
     all_X_train, all_y_train, all_X_test, all_y_test = [], [], [], []
     
@@ -28,10 +41,10 @@ def preprocess_for_quantile_regression(data_dict: dict, lookback: int = 20, futu
     # --- First pass: Gather all training data to fit scalers ---
     for symbol, df in data_dict.items():
         df = df.copy()
+        # Feature Engineering
         df['returns'] = df['close'].pct_change().fillna(0)
         df['rsi'] = ta.momentum.RSIIndicator(close=df['close']).rsi()
         df['macd'] = ta.trend.MACD(close=df['close']).macd()
-        # Add other features as before...
         df['bollinger_h'] = ta.volatility.BollingerBands(close=df['close']).bollinger_hband()
         df['bollinger_l'] = ta.volatility.BollingerBands(close=df['close']).bollinger_lband()
         df['atr'] = ta.volatility.AverageTrueRange(high=df['high'], low=df['low'], close=df['close']).average_true_range()
@@ -41,7 +54,7 @@ def preprocess_for_quantile_regression(data_dict: dict, lookback: int = 20, futu
         df['stoch_osc'] = ta.momentum.StochasticOscillator(high=df['high'], low=df['low'], close=df['close']).stoch()
         df['williams_r'] = ta.momentum.WilliamsRIndicator(high=df['high'], low=df['low'], close=df['close']).williams_r()
 
-        # --- KEY CHANGE: Define target as future return ---
+        # Define target as future return
         df['target'] = df['returns'].shift(-future_horizon)
         df.dropna(inplace=True)
         df.reset_index(drop=True, inplace=True)

@@ -9,7 +9,7 @@ from src.data_preprocessing import preprocess_for_quantile_regression
 from src.evaluate import comprehensive_evaluation
 from src.lstm_model import build_quantile_lstm_model
 from src.mps_model import build_quantile_mps_model
-
+import time
 
 def run_quantile_pipeline():
     """Executes a full ML pipeline for quantile regression."""
@@ -46,6 +46,10 @@ def run_quantile_pipeline():
     lstm_histories = {}
     mps_histories = {}
 
+    # Dictionaries to store training times
+    lstm_training_times = {}
+    mps_training_times = {}
+
     # --- STEP 2: Train a Model for Each Quantile ---
     for q in quantiles:
         print(f"\n" + "="*50)
@@ -55,29 +59,41 @@ def run_quantile_pipeline():
         # -- LSTM --
         print("\n--- Training LSTM ---")
         lstm_model = build_quantile_lstm_model(input_shape=input_shape, quantile=q)
+        start_time = time.time()
         lstm_histories[q] = lstm_model.fit(
             X_train, y_train, epochs=50, batch_size=64, validation_data=(X_test, y_test),
             callbacks=callbacks, verbose=1
         )
+        lstm_training_times[q] = time.time() - start_time
         pred_scaled = lstm_model.predict(X_test)
         lstm_predictions[q] = y_scaler.inverse_transform(pred_scaled)
 
         # -- MPS --
         print("\n--- Training MPS ---")
-        mps_model = build_quantile_mps_model(input_shape=input_shape, quantile=q, bond_dim=4)
+        mps_model = build_quantile_mps_model(input_shape=input_shape, quantile=q, bond_dim=8)
+        start_time = time.time()
         mps_histories[q] = mps_model.fit(
             X_train, y_train, epochs=50, batch_size=64, validation_data=(X_test, y_test),
             callbacks=callbacks, verbose=1
         )
+        mps_training_times[q] = time.time() - start_time
         pred_scaled = mps_model.predict(X_test)
         mps_predictions[q] = y_scaler.inverse_transform(pred_scaled)
 
     # --- STEP 3: Comprehensive Evaluation ---
     y_test_unscaled = y_scaler.inverse_transform(y_test)
-    
-    comprehensive_evaluation(lstm_predictions, y_test_unscaled, lstm_histories, "LSTM Model")
-    comprehensive_evaluation(mps_predictions, y_test_unscaled, mps_histories, "MPS Model")
 
+    # Calculate total training time for each model type
+    total_lstm_time = sum(lstm_training_times.values())
+    total_mps_time = sum(mps_training_times.values())
+
+    print(f"\nTotal LSTM Training Time: {total_lstm_time:.2f} seconds")
+    print(f"Total MPS Training Time: {total_mps_time:.2f} seconds")
+
+
+    comprehensive_evaluation(lstm_predictions, y_test_unscaled, lstm_histories, "LSTM Model", total_lstm_time)
+    comprehensive_evaluation(mps_predictions, y_test_unscaled, mps_histories, "MPS Model", total_mps_time)
+    
     print("--- ✅ Pipeline Finished ---")
 
 if __name__ == "__main__":
