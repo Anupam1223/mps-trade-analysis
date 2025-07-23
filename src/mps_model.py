@@ -18,7 +18,7 @@ class MPSLayer(Layer):
     Expects input shape: (batch_size, time_steps, num_features)
     """
 
-    def __init__(self, output_dim=1, bond_dim=12, l2_lambda=1e-5, **kwargs):
+    def __init__(self, output_dim=1, bond_dim=8, l2_lambda=1e-5, **kwargs):
         super(MPSLayer, self).__init__(**kwargs)
         self.output_dim = output_dim
         self.bond_dim = bond_dim
@@ -96,7 +96,7 @@ class MPSLayer(Layer):
 
 
 def build_quantile_mps_model(
-    input_shape, quantile, bond_dim=12, learning_rate=1e-4, l2_lambda=1e-5
+    input_shape, quantile, bond_dim=8, learning_rate=1e-4, l2_lambda=1e-5
 ):
     """
     Builds a quantile regression model using MPSLayer.

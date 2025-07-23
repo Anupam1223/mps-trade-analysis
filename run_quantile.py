@@ -82,7 +82,7 @@ def run_quantile_pipeline():
         # -- MPS --
         print("\n--- Training MPS ---")
         mps_model = build_quantile_mps_model(
-            input_shape=input_shape, quantile=q, bond_dim=12
+            input_shape=input_shape, quantile=q, bond_dim=8
         )
         start_time = time.time()
         mps_histories[q] = mps_model.fit(
