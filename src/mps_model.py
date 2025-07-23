@@ -29,7 +29,7 @@ class MPSLayer(Layer):
         self.num_features = input_shape[2]
         reg = regularizers.l2(self.l2_lambda)
         init = tf.keras.initializers.RandomNormal(
-            stddev=1e-2
+            stddev=1e-3
         )  # Small init for stable contractions
 
         self.label_site = num_sites // 2

@@ -11,7 +11,7 @@ from alpaca.data.timeframe import TimeFrame
 
 
 def fetch_data(
-    symbols: list, timeframe: TimeFrame = TimeFrame.Hour, days_back: int = 365
+    symbols: list, timeframe: TimeFrame = TimeFrame.Day, days_back: int = 365
 ) -> dict[str, pd.DataFrame]:
     api_key = os.getenv("APCA_API_KEY_ID")
     secret_key = os.getenv("APCA_API_SECRET_KEY")

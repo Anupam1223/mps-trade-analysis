@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 import ta
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from sklearn.utils import shuffle
 
 
@@ -99,9 +99,9 @@ def preprocess_for_quantile_regression(
         )
 
     # --- Fit scalers on the combined training data ---
-    x_scaler = MinMaxScaler().fit(combined_X_train_df)
+    x_scaler = RobustScaler().fit(combined_X_train_df)
     # Reshape y for the scaler, which expects 2D input
-    y_scaler = MinMaxScaler().fit(combined_y_train_series.values.reshape(-1, 1))
+    y_scaler = RobustScaler().fit(combined_y_train_series.values.reshape(-1, 1))
 
     # --- Second pass: Scale and create sequences for each symbol ---
     for symbol, df in data_dict.items():
