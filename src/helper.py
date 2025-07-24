@@ -20,3 +20,15 @@ def svd_decompose_input(encoded_inputs, bond_dim):
     # Return: (batch_size, bond_dim), singular vectors
     compressed = tf.matmul(u_trunc, tf.linalg.diag(s_trunc))
     return compressed, vh_trunc
+
+
+def quantile_loss(quantile):
+    """
+    Creates a quantile loss function.
+    """
+
+    def loss(y_true, y_pred):
+        err = y_true - y_pred
+        return tf.reduce_mean(tf.maximum(quantile * err, (quantile - 1) * err), axis=-1)
+
+    return loss

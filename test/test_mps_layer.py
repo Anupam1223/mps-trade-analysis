@@ -5,6 +5,9 @@ import numpy as np
 import pytest
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
+import tensorflow as tf
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import MeanSquaredError
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Assuming your MPSLayer is defined in src/model.py
@@ -99,6 +102,59 @@ def test_mps_layer_forward_consistency():
 
     # Assert element-wise equality within tolerance
     np.testing.assert_allclose(logits1, logits2, rtol=1e-6, atol=1e-6)
+
+def test_mps_layer_output_variance():
+    batch_size, num_sites, num_features, bond_dim, output_dim = 10, 8, 5, 4, 1
+    input_data = np.random.randn(batch_size, num_sites, num_features).astype(np.float32)
+
+    inputs = Input(shape=(num_sites, num_features))
+    mps_output = MPSLayer(output_dim=output_dim, bond_dim=bond_dim)(inputs)
+    model = Model(inputs=inputs, outputs=mps_output)
+
+    logits = model.predict(input_data)
+
+    # Check that outputs vary (i.e., not all the same)
+    std = np.std(logits)
+    assert std > 1e-4, f"Output variance too low: {std}, model may be degenerate"
+
+def test_mps_layer_gradient_flow():
+    batch_size, num_sites, num_features, bond_dim, output_dim = 5, 6, 7, 4, 1
+    input_data = tf.random.normal((batch_size, num_sites, num_features))
+    target_data = tf.random.normal((batch_size, output_dim))
+
+    inputs = Input(shape=(num_sites, num_features))
+    mps_output = MPSLayer(output_dim=output_dim, bond_dim=bond_dim)(inputs)
+    model = Model(inputs=inputs, outputs=mps_output)
+
+    with tf.GradientTape() as tape:
+        preds = model(input_data)
+        loss = tf.reduce_mean(tf.square(preds - target_data))
+    
+    grads = tape.gradient(loss, model.trainable_weights)
+    
+    # Check that at least one gradient is not None or zero
+    has_grad = any(g is not None and tf.reduce_sum(tf.abs(g)) > 0 for g in grads)
+    assert has_grad, "No gradient flow detected through MPSLayer"
+
+def test_mps_layer_learns_identity():
+
+
+    # Identity mapping test: model should learn to return input sum
+    batch_size, num_sites, num_features = 32, 6, 4
+    bond_dim, output_dim = 8, 1
+
+    X = np.random.rand(batch_size, num_sites, num_features).astype(np.float32)
+    y = np.sum(X, axis=(1, 2), keepdims=True)  # Output is total sum
+
+    inputs = Input(shape=(num_sites, num_features))
+    mps_output = MPSLayer(output_dim=output_dim, bond_dim=bond_dim)(inputs)
+    model = Model(inputs=inputs, outputs=mps_output)
+
+    model.compile(optimizer=Adam(1e-2), loss=MeanSquaredError())
+    history = model.fit(X, y, epochs=100, verbose=0)
+
+    final_loss = history.history['loss'][-1]
+    assert final_loss < 1e-3, f"Model failed to learn simple sum function, loss={final_loss}"
 
 
 if __name__ == "__main__":

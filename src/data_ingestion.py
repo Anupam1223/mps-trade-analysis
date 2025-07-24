@@ -37,12 +37,12 @@ def fetch_data(
 
 
 def fetch_forex_data_yf(
-    symbols: list = None, period: str = "2y", interval: str = "1h"
+    symbols: list = None, period: str = "1y", interval: str = "1h"
 ) -> dict[str, pd.DataFrame]:
     """
     Fetches historical forex data from Yahoo Finance with robust formatting.
     """
-    if symbols is None:
+    if symbols is None: 
         # symbols = ["EURUSD=X", "JPY=X", "GBPUSD=X", "AUDUSD=X"]
         symbols = ["EURUSD=X"]
 

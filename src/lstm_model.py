@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Bidirectional, Dense, Dropout, Input
 from tensorflow.keras.models import Model
 
-from .quantile_loss import quantile_loss  # Import the new loss function
+from src.helper import quantile_loss  # Import the new loss function
 
 
 def build_quantile_lstm_model(

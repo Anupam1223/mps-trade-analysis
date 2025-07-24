@@ -63,21 +63,21 @@ def run_quantile_pipeline():
         print("=" * 50)
 
         # -- LSTM --
-        print("\n--- Training LSTM ---")
-        lstm_model = build_quantile_lstm_model(input_shape=input_shape, quantile=q)
-        start_time = time.time()
-        lstm_histories[q] = lstm_model.fit(
-            X_train,
-            y_train,
-            epochs=50,
-            batch_size=64,
-            validation_data=(X_test, y_test),
-            callbacks=callbacks,
-            verbose=1,
-        )
-        lstm_training_times[q] = time.time() - start_time
-        pred_scaled = lstm_model.predict(X_test)
-        lstm_predictions[q] = y_scaler.inverse_transform(pred_scaled)
+        # print("\n--- Training LSTM ---")
+        # lstm_model = build_quantile_lstm_model(input_shape=input_shape, quantile=q)
+        # start_time = time.time()
+        # lstm_histories[q] = lstm_model.fit(
+        #     X_train,
+        #     y_train,
+        #     epochs=50,
+        #     batch_size=64,
+        #     validation_data=(X_test, y_test),
+        #     callbacks=callbacks,
+        #     verbose=1,
+        # )
+        # lstm_training_times[q] = time.time() - start_time
+        # pred_scaled = lstm_model.predict(X_test)
+        # lstm_predictions[q] = y_scaler.inverse_transform(pred_scaled)
 
         # -- MPS --
         print("\n--- Training MPS ---")
@@ -108,9 +108,9 @@ def run_quantile_pipeline():
     print(f"\nTotal LSTM Training Time: {total_lstm_time:.2f} seconds")
     print(f"Total MPS Training Time: {total_mps_time:.2f} seconds")
 
-    comprehensive_evaluation(
-        lstm_predictions, y_test_unscaled, lstm_histories, "LSTM Model", total_lstm_time
-    )
+    # comprehensive_evaluation(
+    #     lstm_predictions, y_test_unscaled, lstm_histories, "LSTM Model", total_lstm_time
+    # )
     comprehensive_evaluation(
         mps_predictions, y_test_unscaled, mps_histories, "MPS Model", total_mps_time
     )

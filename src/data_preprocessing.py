@@ -3,8 +3,9 @@
 import numpy as np
 import pandas as pd
 import ta
-from sklearn.preprocessing import MinMaxScaler, RobustScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from sklearn.utils import shuffle
+import os
 
 
 def create_sequences(X_data, y_data, lookback):
@@ -99,9 +100,9 @@ def preprocess_for_quantile_regression(
         )
 
     # --- Fit scalers on the combined training data ---
-    x_scaler = RobustScaler().fit(combined_X_train_df)
+    x_scaler = StandardScaler().fit(combined_X_train_df)
     # Reshape y for the scaler, which expects 2D input
-    y_scaler = RobustScaler().fit(combined_y_train_series.values.reshape(-1, 1))
+    y_scaler = StandardScaler().fit(combined_y_train_series.values.reshape(-1, 1))
 
     # --- Second pass: Scale and create sequences for each symbol ---
     for symbol, df in data_dict.items():
@@ -185,6 +186,42 @@ def preprocess_for_quantile_regression(
     # Concatenate the test data but DO NOT shuffle it to preserve time order for plotting
     X_test = np.concatenate(all_X_test, axis=0)
     y_test = np.concatenate(all_y_test, axis=0)
+
+    output_dir = "./data/processed"
+
+    # Create the directory if it doesn't exist
+    num_samples_to_save = 100
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Ensure we don't try to save more samples than we have
+    if len(X_train) >= num_samples_to_save:
+        X_train_sample = X_train[:num_samples_to_save]
+        y_train_sample = y_train[:num_samples_to_save]
+
+        # Reshape X_train_sample from 3D to 2D for CSV format
+        # The shape changes from (samples, lookback_steps, features)
+        # to (samples, lookback_steps * features)
+        X_train_reshaped = X_train_sample.reshape(
+            X_train_sample.shape[0], -1
+        )
+
+        # Combine the features and the target into one array for saving
+        # np.hstack stacks arrays horizontally (column-wise)
+        data_to_save = np.hstack((X_train_reshaped, y_train_sample))
+
+        # Create a pandas DataFrame
+        # The last column will be the target
+        df_to_save = pd.DataFrame(data_to_save)
+
+        # Save the DataFrame to a .csv file
+        sample_filepath = os.path.join(output_dir, "preprocessed_samples.csv")
+        df_to_save.to_csv(sample_filepath, index=False, header=False)
+        print(f"\nSaved {num_samples_to_save} samples to {sample_filepath}")
+    else:
+        print(
+            f"\nWarning: Not enough training samples to save {num_samples_to_save}. "
+            f"Available: {len(X_train)}"
+        )
 
     print("\nUniversal data preprocessing for quantile regression complete.")
     return X_train, y_train, X_test, y_test, x_scaler, y_scaler
