@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import seaborn as sns
 import pandas as pd
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, confusion_matrix, classification_report
 
 
 # --- Helper Function ---
@@ -13,13 +13,38 @@ def pinball_loss(y_true, y_pred, quantile):
     return np.maximum(quantile * delta, (quantile - 1) * delta).mean()
 
 
-# --- New Intuitive Plots for Coordinator ---
+# --- Plotting Functions ---
+
+def plot_confusion_matrix(y_true, y_pred_median, model_name):
+    """
+    Derives directional predictions from regression output and plots a confusion matrix.
+    """
+    # Determine true direction (1 for Up, 0 for Down/Same)
+    true_direction = (np.diff(y_true, prepend=y_true[0]) > 0).astype(int)
+    
+    # Determine predicted direction from the median prediction
+    pred_direction = (np.diff(y_pred_median, prepend=y_pred_median[0]) > 0).astype(int)
+
+    plt.figure(figsize=(6, 5))
+    cm = confusion_matrix(true_direction, pred_direction)
+    
+    sns.heatmap(cm, annot=True, fmt='g', cmap='Greens', 
+                xticklabels=['Predicted Down', 'Predicted Up'], 
+                yticklabels=['Actual Down', 'Actual Up'])
+    
+    plt.title(f'{model_name} - Directional Confusion Matrix')
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.tight_layout()
+    plt.show()
+    
+    print("\n--- Directional Classification Report ---")
+    print(classification_report(true_direction, pred_direction, target_names=['Down', 'Up']))
+
 
 def plot_directional_accuracy(y_true, y_pred_median, model_name):
     """
     Visualizes the model's ability to predict the direction of change (up or down).
-    - Green background: Correctly predicted the direction.
-    - Red background: Predicted the wrong direction.
     """
     true_diff = np.diff(y_true, prepend=y_true[0])
     pred_diff = np.diff(y_pred_median, prepend=y_pred_median[0])
@@ -47,7 +72,6 @@ def plot_directional_accuracy(y_true, y_pred_median, model_name):
 def plot_confidence_gauge(quantile_preds, point_index, model_name):
     """
     Creates a "confidence gauge" for a single point in time.
-    Visualizes the 50% and 90% prediction intervals like a speedometer.
     """
     required_quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
     if not all(q in quantile_preds for q in required_quantiles):
@@ -87,8 +111,6 @@ def plot_confidence_gauge(quantile_preds, point_index, model_name):
     plt.show()
 
 
-# --- Original Technical Plots ---
-
 def plot_pred_vs_true(y_true, y_pred_median, model_name):
     plt.figure(figsize=(10, 5))
     plt.plot(y_true, label='True', color='black')
@@ -123,61 +145,6 @@ def plot_quantile_fan(y_true, quantile_preds, model_name):
     plt.show()
 
 
-def plot_prediction_intervals(y_true, quantile_preds, model_name):
-    if 0.1 not in quantile_preds or 0.9 not in quantile_preds: return
-    plt.figure(figsize=(12, 6))
-    plt.plot(y_true, label='True', color='black')
-    if 0.5 in quantile_preds: plt.plot(quantile_preds[0.5], label='Median (0.5)', color='blue')
-    plt.fill_between(
-        np.arange(len(y_true)), quantile_preds[0.1].flatten(),
-        quantile_preds[0.9].flatten(), color='blue', alpha=0.2,
-        label='Prediction Interval (0.1 - 0.9)'
-    )
-    plt.title(f"{model_name} - Prediction Interval (80%)")
-    plt.xlabel("Time")
-    plt.ylabel("Value")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_quantile_residuals(y_true, quantile_preds, model_name):
-    plt.figure(figsize=(10, 5))
-    residuals_data = [{'Quantile': q, 'Residual': r} for q, pred in quantile_preds.items() for r in (y_true.flatten() - pred.flatten())]
-    sns.boxplot(x='Quantile', y='Residual', data=pd.DataFrame(residuals_data), color='skyblue')
-    plt.title(f"{model_name} - Quantile Residual Errors")
-    plt.xlabel("Quantile")
-    plt.ylabel("Residuals (True - Predicted)")
-    plt.axhline(0, ls='--', color='red')
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_interval_width_over_time(quantile_preds, model_name):
-    if 0.1 not in quantile_preds or 0.9 not in quantile_preds: return
-    width = quantile_preds[0.9].flatten() - quantile_preds[0.1].flatten()
-    plt.figure(figsize=(10, 4))
-    plt.plot(width, label='Interval Width', color='orange')
-    plt.title(f"{model_name} - Interval Width Over Time (0.1 to 0.9)")
-    plt.xlabel("Time")
-    plt.ylabel("Width")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_pinball_loss_curve(y_true, quantile_preds, model_name):
-    quantiles = sorted(quantile_preds.keys())
-    losses = [pinball_loss(y_true, quantile_preds[q], q) for q in quantiles]
-    plt.figure(figsize=(8, 4))
-    plt.plot(quantiles, losses, marker='o', color='red')
-    plt.title(f"{model_name} - Pinball Loss vs. Quantile")
-    plt.xlabel("Quantile")
-    plt.ylabel("Pinball Loss")
-    plt.tight_layout()
-    plt.show()
-
-
 # --- Main Evaluation Function ---
 
 def comprehensive_evaluation(y_true, predictions, histories, model_name, training_time):
@@ -207,6 +174,9 @@ def comprehensive_evaluation(y_true, predictions, histories, model_name, trainin
     print("Displaying plots for non-technical audience...")
     if 0.5 in predictions:
         plot_directional_accuracy(y_true_flat, predictions[0.5].flatten(), model_name)
+        # --- ADDITION: Call the new confusion matrix plot ---
+        plot_confusion_matrix(y_true_flat, predictions[0.5].flatten(), model_name)
+        
     plot_confidence_gauge(predictions, point_index=-1, model_name=model_name)
 
     # --- Detailed Diagnostic Plots ---
@@ -214,10 +184,5 @@ def comprehensive_evaluation(y_true, predictions, histories, model_name, trainin
     if 0.5 in predictions:
         plot_pred_vs_true(y_true_flat, predictions[0.5].flatten(), model_name)
     plot_quantile_fan(y_true_flat, predictions, model_name)
-    plot_prediction_intervals(y_true_flat, predictions, model_name)
-    plot_quantile_residuals(y_true_flat, predictions, model_name)
-    plot_interval_width_over_time(predictions, model_name)
-    plot_pinball_loss_curve(y_true_flat, predictions, model_name)
     
     print(f"\n✅ Evaluation Complete for {model_name}.\n")
-

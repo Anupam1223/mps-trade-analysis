@@ -46,7 +46,7 @@ class MPSLayer(Layer):
     Matrix Product State layer for time-series inputs.
     Includes Layer Normalization for improved training stability.
     """
-    def __init__(self, output_dim=1, bond_dim=10, l2_lambda=1e-4, init_stddev=0.1, **kwargs):
+    def __init__(self, output_dim=1, bond_dim=6, l2_lambda=1e-4, init_stddev=0.1, **kwargs):
         super(MPSLayer, self).__init__(**kwargs)
         self.output_dim = output_dim
         self.bond_dim = bond_dim
@@ -90,7 +90,12 @@ class MPSLayer(Layer):
                 temp = tn.ncon([contracted_vec, self.mps_tensors[i]], [[1], [1, -1, -2]])
                 contracted_vec = tn.ncon([temp, sample[i]], [[1, -1], [1]])
                 # --- IMPROVEMENT: Apply Layer Normalization to the state vector ---
+
+                # Log pre-norm vector norm
+                tf.summary.scalar(f"contracted_vec_norm_pre_norm/site_{i}", tf.norm(contracted_vec), step=tf.summary.experimental.get_step())
                 contracted_vec = self.layer_norm(contracted_vec)
+                # Log post-norm vector norm
+                tf.summary.scalar(f"contracted_vec_norm_post_norm/site_{i}", tf.norm(contracted_vec), step=tf.summary.experimental.get_step())
 
             final_tensor = tn.ncon([contracted_vec, self.mps_tensors[-1]], [[1], [1, -1, -2]])
             output = tn.ncon([final_tensor, sample[-1]], [[1, -1], [1]])
@@ -107,7 +112,7 @@ class MPSLayer(Layer):
 def build_quantile_mps_model(
     input_shape,
     quantile,
-    bond_dim=10,
+    bond_dim=6,
     learning_rate=1e-4,
     l2_lambda=1e-4,
     clipnorm=1.0,

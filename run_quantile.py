@@ -83,7 +83,7 @@ def run_quantile_pipeline():
         # -- MPS --
         print("\n--- Training MPS ---")
         mps_model = build_quantile_mps_model(
-            input_shape=input_shape, quantile=q, bond_dim=10
+            input_shape=input_shape, quantile=q, bond_dim=6
         )
         
         # --- CHANGE: Create specific callbacks for this MPS run ---
