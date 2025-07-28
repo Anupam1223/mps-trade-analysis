@@ -1,14 +1,15 @@
 # run_quantile.py
 
 import time
-
+import os
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 from src.data_ingestion import fetch_forex_data_yf
 from src.data_preprocessing import preprocess_for_quantile_regression
 from src.evaluate import comprehensive_evaluation
 from src.lstm_model import build_quantile_lstm_model
-from src.mps_model import build_quantile_mps_model
+# Import the new callback generator from the mps_model script
+from src.mps_model import build_quantile_mps_model, get_mps_callbacks
 
 
 def run_quantile_pipeline():
@@ -17,7 +18,7 @@ def run_quantile_pipeline():
     # --- STEP 1: Data Ingestion & Preprocessing ---
     print("--- 🔵 STEP 1: Starting Data Ingestion & Preprocessing for Quantiles ---")
     raw_data_dict = fetch_forex_data_yf()
-    lookback_period = 12
+    lookback_period = 40
 
     (
         X_train,
@@ -34,7 +35,8 @@ def run_quantile_pipeline():
     input_shape = (X_train.shape[1], X_train.shape[2])
     quantiles = [0.1, 0.5, 0.9]
 
-    callbacks = [
+    # Shared callbacks for both models
+    shared_callbacks = [
         EarlyStopping(
             monitor="val_loss",
             min_delta=1e-4,
@@ -52,38 +54,44 @@ def run_quantile_pipeline():
     lstm_histories = {}
     mps_histories = {}
 
-    # Dictionaries to store training times
     lstm_training_times = {}
     mps_training_times = {}
 
     # --- STEP 2: Train a Model for Each Quantile ---
     for q in quantiles:
         print("\n" + "=" * 50)
-        print(f"🧠 Training Models for Quantile: {q} �")
+        print(f"🧠 Training Models for Quantile: {q}")
         print("=" * 50)
 
         # -- LSTM --
-        # print("\n--- Training LSTM ---")
-        # lstm_model = build_quantile_lstm_model(input_shape=input_shape, quantile=q)
-        # start_time = time.time()
-        # lstm_histories[q] = lstm_model.fit(
-        #     X_train,
-        #     y_train,
-        #     epochs=50,
-        #     batch_size=64,
-        #     validation_data=(X_test, y_test),
-        #     callbacks=callbacks,
-        #     verbose=1,
-        # )
-        # lstm_training_times[q] = time.time() - start_time
-        # pred_scaled = lstm_model.predict(X_test)
-        # lstm_predictions[q] = y_scaler.inverse_transform(pred_scaled)
+        print("\n--- Training LSTM ---")
+        lstm_model = build_quantile_lstm_model(input_shape=input_shape, quantile=q)
+        start_time = time.time()
+        lstm_histories[q] = lstm_model.fit(
+            X_train,
+            y_train,
+            epochs=50,
+            batch_size=64,
+            validation_data=(X_test, y_test),
+            callbacks=shared_callbacks, # Use only the shared callbacks for LSTM
+            verbose=1,
+        )
+        lstm_training_times[q] = time.time() - start_time
+        pred_scaled = lstm_model.predict(X_test)
+        lstm_predictions[q] = y_scaler.inverse_transform(pred_scaled)
 
         # -- MPS --
         print("\n--- Training MPS ---")
         mps_model = build_quantile_mps_model(
-            input_shape=input_shape, quantile=q, bond_dim=8
+            input_shape=input_shape, quantile=q, bond_dim=10
         )
+        
+        # --- CHANGE: Create specific callbacks for this MPS run ---
+        # This will create a unique log directory for each quantile modelsss
+        log_dir = os.path.join("logs", "fit", f"mps_q_{q}")
+        mps_specific_callbacks = get_mps_callbacks(log_dir_base=log_dir)
+        all_mps_callbacks = shared_callbacks + mps_specific_callbacks
+
         start_time = time.time()
         mps_histories[q] = mps_model.fit(
             X_train,
@@ -91,7 +99,7 @@ def run_quantile_pipeline():
             epochs=50,
             batch_size=64,
             validation_data=(X_test, y_test),
-            callbacks=callbacks,
+            callbacks=all_mps_callbacks, # Pass the combined list of callbacks
             verbose=1,
         )
         mps_training_times[q] = time.time() - start_time
@@ -101,18 +109,26 @@ def run_quantile_pipeline():
     # --- STEP 3: Comprehensive Evaluation ---
     y_test_unscaled = y_scaler.inverse_transform(y_test)
 
-    # Calculate total training time for each model type
     total_lstm_time = sum(lstm_training_times.values())
     total_mps_time = sum(mps_training_times.values())
 
     print(f"\nTotal LSTM Training Time: {total_lstm_time:.2f} seconds")
     print(f"Total MPS Training Time: {total_mps_time:.2f} seconds")
 
-    # comprehensive_evaluation(
-    #     lstm_predictions, y_test_unscaled, lstm_histories, "LSTM Model", total_lstm_time
-    # )
     comprehensive_evaluation(
-        mps_predictions, y_test_unscaled, mps_histories, "MPS Model", total_mps_time
+        y_true=y_test_unscaled, 
+        predictions=lstm_predictions, 
+        histories=lstm_histories, 
+        model_name="LSTM Model", 
+        training_time=total_lstm_time
+    )
+
+    comprehensive_evaluation(
+        y_true=y_test_unscaled, 
+        predictions=mps_predictions, 
+        histories=mps_histories, 
+        model_name="MPS Model", 
+        training_time=total_mps_time
     )
 
     print("--- ✅ Pipeline Finished ---")
